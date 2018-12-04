@@ -3,6 +3,9 @@ library(rvest)
 library(dplyr)
 library(tidyr)
 
+
+# ----- basic web scraping -----
+
 # scrape info of url
 lego_movie <- html("http://www.imdb.com/title/tt1490017/")
 url <- html("http://www.imdb.com/search/title?count=100&release_date=2016,2016&title_type=feature")
@@ -66,16 +69,47 @@ html_nodes(url,
   rename(mix = '.') 
 
 
+# ----- scraping multi levels of websites -----
 
+# top 250 rated TV shows
+main_url <- "http://www.imdb.com/chart/toptv/?ref_=nv_tp_tv250_2"
 
+# define a function that extracts the cast from TV show page:
+getcast <- function(url){
+  page <- read_html(url)
+  nodes <- html_nodes(page, "td a")
+  # nodes <- html_nodes(page, "#titleCast .itemprop")
+  cast <- html_text(nodes)
+  cast <- cast[2]
+  # inds <- seq(from=2, to=length(cast))
+  # cast <- cast[inds]
+  return(cast)
+}
 
+# open main url
+main_page <- read_html(main_url)
+movies_html <- html_nodes(main_page, ".titleColumn a")
 
+# get the titles and url
+m_titles <- html_text(movies_html)
+sub_urls <- html_attr(movies_html, "href")
+m_urls <- paste0('http://www.imdb.com', sub_urls)
 
+# use "getcast()" to extract movie cast from every url in last one
+m_cast <- lapply(m_urls, getcast)
 
+# bind all the lists
+major_cast <- m_cast %>% 
+  as.character %>% 
+  as.data.frame(stringsAsFactors = F) %>% 
+  rename(main_cast = '.')
 
-
-
-
+m_titles %>% 
+  as.data.frame(stringsAsFactors = F) %>% 
+  cbind(., major_cast) %>% 
+  rename(movie_title = '.') %>% 
+  mutate(main_cast = gsub("\n", "", movie_title)) %>% 
+  head
 
 
 
